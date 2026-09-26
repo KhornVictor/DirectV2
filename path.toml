@@ -1,0 +1,18 @@
+# Direct - Path Shortcuts Configuration
+# Use single quotes for Windows paths to avoid backslash escaping issues.
+
+[paths]
+me = 'C:\Desktop\Me'
+techno = 'C:\Desktop\Student Online (SO)\Techno\I3-GIC-A\Semester2'
+env = 'C:\Desktop\Student Online (SO)\Code'
+duck = 'C:\Desktop\Rubber Duck'
+mock = 'C:\Desktop\Student Online (SO)\Mock Exam'
+rdtc = 'C:\Desktop\Student Online (SO)\RDTC\aero-service'
+config = 'C:\Users\Khorn Victor\.config'
+etec = 'C:\xampp\htdocs\ETEC'
+camcycber = 'C:\Desktop\Student Online (SO)\Camcycber'
+stj = 'C:\Desktop\Student Online (SO)\Techno\other\STJ'
+autohotkey = 'C:\Users\Khorn Victor\OneDrive\Documents\AutoHotkey'
+obsidian = 'C:\Desktop\Obsidean'
+tool = 'C:\Tool'
+drive = 'C:\Desktop\Drive'
