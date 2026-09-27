@@ -1,11 +1,22 @@
 """Command-line interface for Direct with CRUD operations and interactive menu."""
 
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 from direct.colors import color, BOLD, CYAN, DIM, GREEN, RED, YELLOW
 from direct.interactive import interactive_menu
 from direct.manager import PathManager
+
+
+def output_target_path(target_path: str) -> None:
+    """Print the resolved path and write to DIRECT_JUMP_FILE if configured by shell."""
+    if jump_file := os.getenv("DIRECT_JUMP_FILE"):
+        try:
+            Path(jump_file).write_text(target_path, encoding="utf-8")
+        except Exception:
+            pass
+    print(target_path)
 
 
 def display_paths(paths: Dict[str, str], script_name: str = "direct") -> None:
@@ -183,7 +194,7 @@ def run(argv: Optional[List[str]] = None) -> int:
         if sys.stdin.isatty():
             selected_path = interactive_menu(manager, script_name=display_name)
             if selected_path:
-                print(selected_path)
+                output_target_path(selected_path)
             return 0
         display_paths(manager.list_paths(), script_name=display_name)
         return 0
@@ -195,7 +206,7 @@ def run(argv: Optional[List[str]] = None) -> int:
     if command in ("menu", "-i", "--interactive"):
         selected_path = interactive_menu(manager, script_name=display_name)
         if selected_path:
-            print(selected_path)
+            output_target_path(selected_path)
         return 0
 
     # Help commands
@@ -231,7 +242,7 @@ def run(argv: Optional[List[str]] = None) -> int:
             return 1
         target_path = manager.resolve(sub_args[0])
         if target_path:
-            print(target_path)
+            output_target_path(target_path)
             return 0
         error_label = color("ERROR", BOLD + RED)
         print(f"{error_label}: '{sub_args[0]}' is not a known path")
@@ -240,7 +251,7 @@ def run(argv: Optional[List[str]] = None) -> int:
     # Default action: resolve given name as a path shortcut
     target_path = manager.resolve(argv[0])
     if target_path:
-        print(target_path)
+        output_target_path(target_path)
         return 0
 
     error_label = color("ERROR", BOLD + RED)
