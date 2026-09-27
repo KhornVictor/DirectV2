@@ -1,10 +1,10 @@
-"""Unit tests for the Direct shortcut manager."""
+"""Unit tests for Direct shortcut manager including CRUD operations."""
 
 import tempfile
 from pathlib import Path
 import pytest
 from direct.colors import color, BOLD
-from direct.config import load_paths
+from direct.config import load_paths, save_paths
 from direct.manager import PathManager
 from direct.cli import run
 
@@ -30,44 +30,138 @@ def test_manager_resolution():
     assert manager.resolve("unknown") is None
 
 
-def test_manager_exists():
-    manager = PathManager(paths={"code": "C:\\Code"})
-    assert manager.exists("code") is True
-    assert manager.exists("CODE") is True
-    assert manager.exists("nonexistent") is False
-
-
-def test_custom_toml_loading(monkeypatch):
+def test_manager_crud_operations():
     with tempfile.TemporaryDirectory() as tmp_dir:
         config_path = Path(tmp_dir) / "path.toml"
-        config_path.write_text(
-            """
-            [paths]
-            custom = 'D:\\CustomProject'
-            """,
-            encoding="utf-8",
-        )
+        manager = PathManager(paths={}, config_path=config_path)
+
+        # 1. Add
+        manager.add("test_key", "C:\\TestDir")
+        assert manager.resolve("test_key") == "C:\\TestDir"
+        assert manager.exists("TEST_KEY") is True
+
+        # Prevent duplicate add without overwrite
+        with pytest.raises(ValueError):
+            manager.add("test_key", "C:\\DifferentDir")
+
+        # 2. Update
+        manager.update("TEST_KEY", "C:\\UpdatedDir")
+        assert manager.resolve("test_key") == "C:\\UpdatedDir"
+
+        # Update non-existent raises KeyError
+        with pytest.raises(KeyError):
+            manager.update("non_existent", "C:\\Path")
+
+        # 3. Set (create or update)
+        manager.set("new_key", "C:\\NewDir")
+        assert manager.resolve("new_key") == "C:\\NewDir"
+        manager.set("test_key", "C:\\OverwrittenDir")
+        assert manager.resolve("test_key") == "C:\\OverwrittenDir"
+
+        # 4. Remove
+        old = manager.remove("test_key")
+        assert old == "C:\\OverwrittenDir"
+        assert manager.resolve("test_key") is None
+
+        # Remove non-existent raises KeyError
+        with pytest.raises(KeyError):
+            manager.remove("test_key")
+
+
+def test_config_save_and_reload():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        config_path = Path(tmp_dir) / "path.toml"
+        paths_to_save = {
+            "alpha": "C:\\Alpha\\Dir",
+            "beta": "C:\\Beta\\Dir",
+        }
+        save_paths(paths_to_save, config_file=config_path)
+
+        assert config_path.is_file()
+        content = config_path.read_text(encoding="utf-8")
+        assert "[paths]" in content
+        assert "alpha = 'C:\\Alpha\\Dir'" in content
+
+        loaded = load_paths()  # Should work with env var
+        # Test with DIRECT_CONFIG pointing to this file
+        import os
+        os.environ["DIRECT_CONFIG"] = str(config_path)
+        try:
+            loaded_custom = load_paths()
+            assert loaded_custom["alpha"] == "C:\\Alpha\\Dir"
+            assert loaded_custom["beta"] == "C:\\Beta\\Dir"
+        finally:
+            del os.environ["DIRECT_CONFIG"]
+
+
+def test_cli_add_and_remove(monkeypatch, capsys):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        config_path = Path(tmp_dir) / "path.toml"
         monkeypatch.setenv("DIRECT_CONFIG", str(config_path))
-        paths = load_paths()
-        assert paths.get("custom") == "D:\\CustomProject"
+
+        # Add with explicit path
+        exit_code = run(["add", "my_app", "C:\\Apps\\MyApp"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "SUCCESS" in captured.out
+        assert "my_app" in captured.out
+
+        # Resolve newly added
+        exit_code = run(["my_app"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "C:\\Apps\\MyApp" in captured.out
+
+        # Update
+        exit_code = run(["update", "my_app", "C:\\Apps\\MyApp2"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "SUCCESS" in captured.out
+
+        # Check updated
+        exit_code = run(["my_app"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "C:\\Apps\\MyApp2" in captured.out
+
+        # Remove
+        exit_code = run(["rm", "my_app"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "SUCCESS" in captured.out
+
+        # Verify removal
+        exit_code = run(["my_app"])
+        assert exit_code == 1
 
 
-def test_cli_list_returns_zero(capsys):
-    exit_code = run(argv=[])
-    captured = capsys.readouterr()
+def test_cli_add_defaults_to_cwd(monkeypatch, capsys):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        config_path = Path(tmp_dir) / "path.toml"
+        monkeypatch.setenv("DIRECT_CONFIG", str(config_path))
+
+        exit_code = run(["add", "here"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "SUCCESS" in captured.out
+
+        # Should resolve to current working directory
+        exit_code = run(["here"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert str(Path.cwd().resolve()) in captured.out
+
+
+def test_cli_help(capsys):
+    exit_code = run(["help"])
     assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "Direct - Directory Shortcut & Navigation Tool" in captured.out
+    assert "Usage:" in captured.out
+
+
+def test_cli_list(capsys):
+    exit_code = run(["ls"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
     assert "Available paths" in captured.out
-
-
-def test_cli_resolve_success(capsys):
-    exit_code = run(argv=["me"])
-    captured = capsys.readouterr()
-    assert exit_code == 0
-    assert "C:\\Desktop\\Me" in captured.out
-
-
-def test_cli_resolve_unknown(capsys):
-    exit_code = run(argv=["nonexistent_xyz"])
-    captured = capsys.readouterr()
-    assert exit_code == 1
-    assert "ERROR" in captured.out
