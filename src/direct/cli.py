@@ -1,9 +1,10 @@
-"""Command-line interface for Direct with CRUD operations."""
+"""Command-line interface for Direct with CRUD operations and interactive menu."""
 
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 from direct.colors import color, BOLD, CYAN, DIM, GREEN, RED, YELLOW
+from direct.interactive import interactive_menu
 from direct.manager import PathManager
 
 
@@ -34,15 +35,17 @@ def display_help(script_name: str = "direct") -> None:
     title = color("Direct - Directory Shortcut & Navigation Tool", BOLD + CYAN)
     print(f"{title}\n")
     print(f"{color('Usage:', BOLD)}")
-    print(f"  {color(script_name, GREEN)}                           List all registered path shortcuts")
+    print(f"  {color(script_name, GREEN)}                           Open interactive menu to view, add, edit, or delete")
     print(f"  {color(f'{script_name} <name>', GREEN)}                    Resolve and output the path for <name>")
     print(f"  {color(f'{script_name} add <name> [path]', GREEN)}         Add a shortcut (defaults to current directory)")
     print(f"  {color(f'{script_name} set <name> [path]', GREEN)}         Set or overwrite a shortcut (defaults to cwd)")
     print(f"  {color(f'{script_name} update <name> <path>', GREEN)}      Update an existing shortcut path")
     print(f"  {color(f'{script_name} rm <name>', GREEN)}                 Remove a shortcut (aliases: remove, del)")
-    print(f"  {color(f'{script_name} ls', GREEN)}                        List shortcuts (alias: list)")
+    print(f"  {color(f'{script_name} ls', GREEN)}                        Print paths list without interactive menu (alias: list)")
+    print(f"  {color(f'{script_name} menu', GREEN)}                      Launch interactive menu explicitly (alias: -i)")
     print(f"  {color(f'{script_name} help', GREEN)}                      Show this help guide\n")
     print(f"{color('Examples:', BOLD)}")
+    print(f"  {script_name}                              # Opens interactive list & CRUD menu")
     print(f"  {script_name} add project                  # Adds current folder as 'project'")
     print(f"  {script_name} add work C:\\Projects\\Work     # Adds custom path as 'work'")
     print(f"  {script_name} update work C:\\NewPath        # Updates 'work'")
@@ -72,7 +75,10 @@ def handle_add(manager: PathManager, args: List[str], script_name: str) -> int:
         manager.add(name, resolved_path)
     except ValueError as err:
         print(f"{color('ERROR', BOLD + RED)}: {err}")
-        hint = color(f"Use '{script_name} update {name} <path>' or '{script_name} set {name} [path]' to overwrite.", YELLOW)
+        hint = color(
+            f"Use '{script_name} update {name} <path>' or '{script_name} set {name} [path]' to overwrite.",
+            YELLOW,
+        )
         print(f"Hint: {hint}")
         return 1
 
@@ -170,20 +176,35 @@ def run(argv: Optional[List[str]] = None) -> int:
 
     manager = PathManager()
 
+    # When no arguments are provided:
+    # In interactive terminal (TTY): launch the interactive CRUD menu.
+    # In non-interactive environments (pipes/scripts): print static table.
     if not argv:
+        if sys.stdin.isatty():
+            selected_path = interactive_menu(manager, script_name=display_name)
+            if selected_path:
+                print(selected_path)
+            return 0
         display_paths(manager.list_paths(), script_name=display_name)
         return 0
 
     command = argv[0].strip().lower()
     sub_args = argv[1:]
 
+    # Explicit interactive menu command
+    if command in ("menu", "-i", "--interactive"):
+        selected_path = interactive_menu(manager, script_name=display_name)
+        if selected_path:
+            print(selected_path)
+        return 0
+
     # Help commands
     if command in ("help", "--help", "-h"):
         display_help(script_name=display_name)
         return 0
 
-    # List commands
-    if command in ("list", "ls"):
+    # Non-interactive list commands
+    if command in ("list", "ls", "-l", "--list"):
         display_paths(manager.list_paths(), script_name=display_name)
         return 0
 

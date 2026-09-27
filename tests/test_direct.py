@@ -1,4 +1,4 @@
-"""Unit tests for Direct shortcut manager including CRUD operations."""
+"""Unit tests for Direct shortcut manager including CRUD and interactive operations."""
 
 import tempfile
 from pathlib import Path
@@ -6,6 +6,11 @@ import pytest
 from direct.colors import color, BOLD
 from direct.config import load_paths, save_paths
 from direct.manager import PathManager
+from direct.interactive import (
+    get_indexed_paths,
+    find_by_number_or_name,
+    interactive_menu,
+)
 from direct.cli import run
 
 
@@ -82,8 +87,6 @@ def test_config_save_and_reload():
         assert "[paths]" in content
         assert "alpha = 'C:\\Alpha\\Dir'" in content
 
-        loaded = load_paths()  # Should work with env var
-        # Test with DIRECT_CONFIG pointing to this file
         import os
         os.environ["DIRECT_CONFIG"] = str(config_path)
         try:
@@ -165,3 +168,63 @@ def test_cli_list(capsys):
     assert exit_code == 0
     captured = capsys.readouterr()
     assert "Available paths" in captured.out
+
+
+def test_interactive_helpers():
+    sample_paths = {
+        "zeta": "C:\\Zeta",
+        "alpha": "C:\\Alpha",
+    }
+    indexed = get_indexed_paths(sample_paths)
+    assert indexed[0][1] == "alpha"
+    assert indexed[1][1] == "zeta"
+
+    # Match by number
+    match_num = find_by_number_or_name("1", indexed)
+    assert match_num == ("alpha", "C:\\Alpha")
+
+    # Match by name (case-insensitive)
+    match_name = find_by_number_or_name("ZETA", indexed)
+    assert match_name == ("zeta", "C:\\Zeta")
+
+    assert find_by_number_or_name("99", indexed) is None
+    assert find_by_number_or_name("", indexed) is None
+
+
+def test_interactive_menu_selection(monkeypatch):
+    sample_paths = {"test": "C:\\TestPath"}
+    manager = PathManager(paths=sample_paths)
+
+    # Simulate entering "1" to select first item
+    inputs = iter(["1"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
+
+    selected = interactive_menu(manager)
+    assert selected == "C:\\TestPath"
+
+
+def test_interactive_menu_add_update_delete(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        config_path = Path(tmp_dir) / "path.toml"
+        manager = PathManager(paths={}, config_path=config_path)
+
+        # 1. Add shortcut 'proj' -> 'C:\MyProj'
+        # Choice: 'a' -> name: 'proj' -> path: 'C:\MyProj' -> Enter continue -> 'q' quit
+        add_inputs = iter(["a", "proj", "C:\\MyProj", "", "q"])
+        monkeypatch.setattr("builtins.input", lambda prompt="": next(add_inputs))
+        interactive_menu(manager)
+        assert manager.resolve("proj") == "C:\\MyProj"
+
+        # 2. Update shortcut 'proj' -> 'C:\MyProjV2'
+        # Choice: 'u' -> target: '1' -> new_path: 'C:\MyProjV2' -> Enter continue -> 'q' quit
+        update_inputs = iter(["u", "1", "C:\\MyProjV2", "", "q"])
+        monkeypatch.setattr("builtins.input", lambda prompt="": next(update_inputs))
+        interactive_menu(manager)
+        assert manager.resolve("proj") == "C:\\MyProjV2"
+
+        # 3. Delete shortcut 'proj'
+        # Choice: 'd' -> target: '1' -> confirm: 'y' -> Enter continue -> 'q' quit
+        delete_inputs = iter(["d", "1", "y", "", "q"])
+        monkeypatch.setattr("builtins.input", lambda prompt="": next(delete_inputs))
+        interactive_menu(manager)
+        assert manager.resolve("proj") is None

@@ -6,8 +6,9 @@ A lightweight, fast directory navigation and shortcut bookmark manager for Windo
 
 ## Features
 
-- **CRUD Operations**: Create, read, update, and remove path shortcuts directly from your terminal.
-- **Auto Current-Directory**: Simply run `direct add <name>` to bookmark your current folder.
+- **Interactive Terminal Menu**: Type `direct` to open the interactive list where you can select, add, update, and delete shortcuts in real time.
+- **Fast CLI CRUD**: Create, read, update, and remove path shortcuts directly from terminal commands or inside the menu.
+- **Auto Current-Directory**: Simply add a shortcut name to bookmark your current folder without typing the full path.
 - **External Configuration**: Automatically synchronizes with [`path.toml`](file:///C:/Tool/Direct/path.toml).
 - **Case-Insensitive Resolution**: Jump to shortcuts regardless of capitalization (e.g. `direct me`, `direct ME`, `direct Me`).
 - **ANSI Color Output**: Formatted overview with automatic TTY and `NO_COLOR` detection.
@@ -27,9 +28,10 @@ Direct/
 │   └── direct/
 │       ├── __init__.py        # Package exports
 │       ├── __main__.py        # Entrypoint for `python -m direct`
-│       ├── cli.py             # CLI parser, formatting, and CRUD handlers
+│       ├── cli.py             # CLI parser and command routing
 │       ├── colors.py          # ANSI colors and styling helpers
 │       ├── config.py          # TOML configuration loader and saver
+│       ├── interactive.py     # Interactive terminal menu (list, select, add, edit, delete)
 │       └── manager.py         # PathManager domain logic (CRUD & resolve)
 └── tests/
     └── test_direct.py         # Unit tests (pytest)
@@ -37,19 +39,57 @@ Direct/
 
 ---
 
-## Terminal Commands (CRUD)
+## Interactive Menu
+
+Simply run `direct` with no arguments in your terminal to open the interactive menu:
+
+```
+Available paths:
+   1. autohotkey -> C:\Users\Khorn Victor\OneDrive\Documents\AutoHotkey
+   2. camcycber  -> C:\Desktop\Student Online (SO)\Camcycber
+   3. config     -> C:\Users\Khorn Victor\.config
+   4. drive      -> C:\Desktop\Drive
+   5. duck       -> C:\Desktop\Rubber Duck
+   6. env        -> C:\Desktop\Student Online (SO)\Code
+   7. etec       -> C:\xampp\htdocs\ETEC
+   8. me         -> C:\Desktop\Me
+   9. mock       -> C:\Desktop\Student Online (SO)\Mock Exam
+  10. obsidian   -> C:\Desktop\Obsidean
+  11. rdtc       -> C:\Desktop\Student Online (SO)\RDTC\aero-service
+  12. stj        -> C:\Desktop\Student Online (SO)\Techno\other\STJ
+  13. techno     -> C:\Desktop\Student Online (SO)\Techno\I3-GIC-A\Semester2
+  14. tool       -> C:\Tool
+
+Actions:
+  [1-14] Select path | [a] Add | [u] Update | [d] Delete | [q] Quit
+
+Choice> 
+```
+
+- **Select a path**: Enter `1`-`14` or shortcut name (e.g. `me`) to output the path.
+- **Add**: Type `a` to add a new shortcut (defaults to current directory if path is omitted).
+- **Update**: Type `u` and pick the number/name to update the destination directory.
+- **Delete**: Type `d` and pick the number/name to remove a shortcut with confirmation.
+- **Quit**: Type `q` or press Enter to exit.
+
+---
+
+## Terminal Commands (Direct CLI)
+
+You can also run commands directly without opening the interactive menu:
 
 | Operation | Command | Description |
 |---|---|---|
-| **Create** | `direct add <name> [path]` | Add a new shortcut (defaults to current working directory if path is omitted) |
-| **Set** | `direct set <name> [path]` | Create or overwrite a shortcut (defaults to current directory) |
-| **Read (List)** | `direct` or `direct ls` | Display formatted list of all registered shortcuts |
-| **Read (Get)** | `direct <name>` | Output target directory path (for terminal navigation / jumping) |
-| **Update** | `direct update <name> <path>` | Update an existing shortcut to a new path |
+| **Interactive Menu** | `direct` or `direct menu` | Open interactive CRUD menu |
+| **Create** | `direct add <name> [path]` | Add a new shortcut (defaults to cwd if omitted) |
+| **Set** | `direct set <name> [path]` | Create or overwrite a shortcut (defaults to cwd) |
+| **Read (List)** | `direct ls` or `direct list` | Print static list without opening menu |
+| **Read (Get)** | `direct <name>` | Output target path directly (for `cd` / navigation) |
+| **Update** | `direct update <name> <path>` | Update an existing shortcut path |
 | **Delete** | `direct rm <name>` | Remove a shortcut (`aliases: remove, del, delete`) |
 | **Help** | `direct help` | Show usage commands and examples |
 
-### Examples
+### CLI Examples
 
 ```powershell
 # 1. Add current working directory as 'myproject'
@@ -65,7 +105,7 @@ direct update work C:\Company\NewRepository
 # 4. Remove a shortcut
 direct rm myproject
 
-# 5. Resolve path
+# 5. Jump to shortcut
 direct work
 # Output: C:\Company\NewRepository
 ```
@@ -83,12 +123,6 @@ me = 'C:\Desktop\Me'
 tool = 'C:\Tool'
 ```
 
-### Configuration Priority
-1. `DIRECT_CONFIG` environment variable.
-2. Root [`path.toml`](file:///C:/Tool/Direct/path.toml).
-3. Current working directory `path.toml`.
-4. User config directory: `~/.config/direct/path.toml`.
-
 ---
 
 ## PowerShell Jump Integration
@@ -98,7 +132,10 @@ Add this function to your PowerShell `$PROFILE` (run `notepad $PROFILE`):
 ```powershell
 function go($name) {
     if (-not $name) {
-        direct
+        $target = direct
+        if ($LASTEXITCODE -eq 0 -and $target -and (Test-Path $target)) {
+            Set-Location $target
+        }
         return
     }
     $target = direct $name
@@ -108,12 +145,9 @@ function go($name) {
 }
 ```
 
-Now you can quickly jump anywhere from any terminal:
-```powershell
-go me
-go tool
-go config
-```
+Now you can:
+- Type `go` to open the interactive menu and select a path or manage your shortcuts.
+- Type `go me` to jump immediately to `me`.
 
 ---
 
