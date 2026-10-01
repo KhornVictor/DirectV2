@@ -13,3 +13,9 @@ direct = "direct.cli:main"
 dev = [
     "pytest>=8.0.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/KhornVictor/DirectV2"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

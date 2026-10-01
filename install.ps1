@@ -4,13 +4,13 @@
 .DESCRIPTION
     Installs Direct by cloning the repository to C:\Tool\Direct and setting up the Python environment.
     Designed to be run directly or via Invoke-RestMethod:
-        irm https://raw.githubusercontent.com/KhornVictor/Direct/main/install.ps1 | iex
+        irm https://raw.githubusercontent.com/KhornVictor/DirectV2/main/install.ps1 | iex
 #>
 
 [CmdletBinding()]
 param(
     [string]$InstallDir = "C:\Tool\Direct",
-    [string]$RepoUrl    = "https://github.com/KhornVictor/Direct.git"
+    [string]$RepoUrl    = "https://github.com/KhornVictor/DirectV2.git"
 )
 
 $ErrorActionPreference = "Stop"

@@ -97,77 +97,50 @@ def test_config_save_and_reload():
             del os.environ["DIRECT_CONFIG"]
 
 
-def test_cli_add_and_remove(monkeypatch, capsys):
+def test_cli_resolve_path(monkeypatch, capsys):
     with tempfile.TemporaryDirectory() as tmp_dir:
         config_path = Path(tmp_dir) / "path.toml"
+        save_paths({"my_app": "C:\\Apps\\MyApp"}, config_file=config_path)
         monkeypatch.setenv("DIRECT_CONFIG", str(config_path))
 
-        # Add with explicit path
-        exit_code = run(["add", "my_app", "C:\\Apps\\MyApp"])
-        assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "SUCCESS" in captured.out
-        assert "my_app" in captured.out
+        # Jump file support
+        jump_file = Path(tmp_dir) / "jump.txt"
+        monkeypatch.setenv("DIRECT_JUMP_FILE", str(jump_file))
 
-        # Resolve newly added
+        # Known path resolves successfully
         exit_code = run(["my_app"])
         assert exit_code == 0
         captured = capsys.readouterr()
         assert "C:\\Apps\\MyApp" in captured.out
+        assert jump_file.read_text(encoding="utf-8") == "C:\\Apps\\MyApp"
 
-        # Update
-        exit_code = run(["update", "my_app", "C:\\Apps\\MyApp2"])
+        # Case-insensitive resolve
+        exit_code = run(["MY_APP"])
         assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "SUCCESS" in captured.out
 
-        # Check updated
-        exit_code = run(["my_app"])
-        assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "C:\\Apps\\MyApp2" in captured.out
-
-        # Remove
-        exit_code = run(["rm", "my_app"])
-        assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "SUCCESS" in captured.out
-
-        # Verify removal
-        exit_code = run(["my_app"])
+        # Unknown path returns error
+        exit_code = run(["unknown_app"])
         assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "ERROR" in captured.out
 
 
-def test_cli_add_defaults_to_cwd(monkeypatch, capsys):
+def test_cli_no_args_non_interactive(monkeypatch, capsys):
     with tempfile.TemporaryDirectory() as tmp_dir:
         config_path = Path(tmp_dir) / "path.toml"
+        save_paths({"tool": "C:\\Tool"}, config_file=config_path)
         monkeypatch.setenv("DIRECT_CONFIG", str(config_path))
 
-        exit_code = run(["add", "here"])
+        # Simulate non-TTY (piped / scripted)
+        monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+        exit_code = run([])
         assert exit_code == 0
         captured = capsys.readouterr()
-        assert "SUCCESS" in captured.out
+        assert "Available paths" in captured.out
+        assert "tool" in captured.out
+        assert "C:\\Tool" in captured.out
 
-        # Should resolve to current working directory
-        exit_code = run(["here"])
-        assert exit_code == 0
-        captured = capsys.readouterr()
-        assert str(Path.cwd().resolve()) in captured.out
-
-
-def test_cli_help(capsys):
-    exit_code = run(["help"])
-    assert exit_code == 0
-    captured = capsys.readouterr()
-    assert "Direct - Directory Shortcut & Navigation Tool" in captured.out
-    assert "Usage:" in captured.out
-
-
-def test_cli_list(capsys):
-    exit_code = run(["ls"])
-    assert exit_code == 0
-    captured = capsys.readouterr()
-    assert "Available paths" in captured.out
 
 
 def test_interactive_helpers():

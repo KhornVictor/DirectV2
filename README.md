@@ -40,7 +40,7 @@ Before installing, ensure you have:
 Run the following command in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/KhornVictor/Direct/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/KhornVictor/DirectV2/main/install.ps1 | iex
 ```
 
 This clones the repository into `C:\Tool\Direct` and sets up the Python virtual environment.
@@ -51,7 +51,7 @@ This clones the repository into `C:\Tool\Direct` and sets up the Python virtual 
 
 ```powershell
 # 1. Create target directory and clone
-git clone https://github.com/KhornVictor/Direct.git C:\Tool\Direct
+git clone https://github.com/KhornVictor/DirectV2.git C:\Tool\Direct
 
 # 2. Setup Python environment
 python -m venv C:\Tool\Direct\.venv
