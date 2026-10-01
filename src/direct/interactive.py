@@ -1,9 +1,17 @@
 """Interactive terminal menu for Direct shortcut manager."""
 
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from direct.colors import color, BOLD, CYAN, DIM, GREEN, RED, YELLOW
 from direct.manager import PathManager
+
+
+def get_caller_cwd() -> str:
+    """Return working directory from DIRECT_CALLER_DIR or fallback to cwd."""
+    if caller_dir := os.getenv("DIRECT_CALLER_DIR"):
+        return str(Path(caller_dir).resolve())
+    return str(Path.cwd().resolve())
 
 
 def get_indexed_paths(paths: Dict[str, str]) -> List[Tuple[int, str, str]]:
@@ -79,7 +87,7 @@ def do_add(manager: PathManager, indexed: List[Tuple[int, str, str]]) -> None:
             print("Cancelled.")
             return
 
-    cwd_str = str(Path.cwd().resolve())
+    cwd_str = get_caller_cwd()
     try:
         path_input = input(
             f"{color('Enter directory path', BOLD)} [Enter for current: {cwd_str}]: "
@@ -136,7 +144,7 @@ def do_update(manager: PathManager, indexed: List[Tuple[int, str, str]]) -> None
     key, old_path = match
     print(f"Selected: {color(key, GREEN)} (currently: {old_path})")
 
-    cwd_str = str(Path.cwd().resolve())
+    cwd_str = get_caller_cwd()
     try:
         new_path_input = input(
             f"{color('Enter new path', BOLD)} [Enter to keep, '.' for cwd]: "
