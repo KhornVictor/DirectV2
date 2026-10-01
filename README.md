@@ -1,4 +1,4 @@
-# Direct 🚀
+# DirectV2 🚀
 
 A lightweight, fast directory navigation and shortcut bookmark manager for Windows and PowerShell terminals.
 
